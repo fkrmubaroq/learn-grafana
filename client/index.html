@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>client</title>
+      <!--
+      https://www.w3.org/TR/trace-context/
+      Set the `traceparent` in the server's HTML template code. It should be
+      dynamically generated server side to have the server's request trace ID,
+      a parent span ID that was set on the server's request span, and the trace
+      flags to indicate the server's sampling decision
+      (01 = sampled, 00 = not sampled).
+      '{version}-{traceId}-{spanId}-{sampleDecision}'
+    -->
+    <meta
+      name="traceparent"
+      content="00-ab42124a3c573678d4d8b21ba52df3bf-d21f7bc17caa5aba-01"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

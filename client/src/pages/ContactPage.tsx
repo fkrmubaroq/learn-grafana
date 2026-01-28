@@ -1,17 +1,34 @@
-import { useState } from "react";
-import { Mail, Github, Linkedin, Twitter, Send } from "lucide-react";
+import { trace } from '@opentelemetry/api';
+import { Github, Linkedin, Mail, Send, Twitter } from "lucide-react";
+import { useRef, useState } from "react";
 
+const tracer = trace.getTracer('react-frontend');
+
+type SpanPayload = {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+const initialSpanPayload: SpanPayload = {
+  name: "",
+  email: "",
+  subject: "",
+  message: "",
+}
 export function ContactPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    subject: "",
-    message: "",
-  });
+
+  const spanPayloadRef = useRef<SpanPayload>(initialSpanPayload);
+  const [formData, setFormData] = useState<SpanPayload>(initialSpanPayload);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
+    const span = tracer.startSpan('form_submit', {
+      attributes: {
+        'form.data': JSON.stringify(spanPayloadRef.current),
+      },
+    });
+    span.end();
     console.log("Form submitted:", formData);
     alert("Thanks for reaching out! I'll get back to you soon.");
     setFormData({ name: "", email: "", subject: "", message: "" });
@@ -24,6 +41,11 @@ export function ContactPage() {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+
+    spanPayloadRef.current = {
+      ...spanPayloadRef.current,
+      [e.target.name]: e.target.value,
+    };
   };
 
   return (

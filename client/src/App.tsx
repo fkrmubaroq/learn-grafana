@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { DocsLayout } from "./components/DocsLayout";
-import { HomePage, AboutPage, ContactPage } from "./pages";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { HomePage, AboutPage, ContactPage, UsernameEntryPage } from "./pages";
 import {
   DocsIntroduction,
   DocsQuickStart,
@@ -18,7 +19,18 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout />}>
+        {/* Username Entry Page - tidak perlu protection */}
+        <Route path="/username-entry" element={<UsernameEntryPage />} />
+
+        {/* Protected Routes - hanya bisa diakses jika sudah terdaftar */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
           {/* Main Pages */}
           <Route index element={<HomePage />} />
           <Route path="about" element={<AboutPage />} />

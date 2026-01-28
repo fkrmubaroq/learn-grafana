@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
-import initTracing from './web-tracer-provider';
+import initTracing from './lib/web-tracer';
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { DocsLayout } from "./components/DocsLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { HomePage, AboutPage, ContactPage, UsernameEntryPage } from "./pages";
+import { HomePage, AboutPage, ContactPage, UsernameEntryPage, MockPage } from "./pages";
 import {
   DocsIntroduction,
   DocsQuickStart,
@@ -35,6 +35,7 @@ function App() {
           <Route index element={<HomePage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="contact" element={<ContactPage />} />
+          <Route path="mock" element={<MockPage />} />
 
           {/* Documentation Pages */}
           <Route path="docs" element={<DocsLayout />}>

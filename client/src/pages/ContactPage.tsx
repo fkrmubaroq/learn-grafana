@@ -1,8 +1,6 @@
-import { trace } from '@opentelemetry/api';
+import { useTraceForm } from '@/lib/use-trace-form';
 import { Github, Linkedin, Mail, Send, Twitter } from "lucide-react";
 import { useRef, useState } from "react";
-
-const tracer = trace.getTracer('react-frontend');
 
 type SpanPayload = {
   name: string;
@@ -17,21 +15,22 @@ const initialSpanPayload: SpanPayload = {
   message: "",
 }
 export function ContactPage() {
-
-  const spanPayloadRef = useRef<SpanPayload>(initialSpanPayload);
+  const formRef = useRef<HTMLFormElement>(null);
   const [formData, setFormData] = useState<SpanPayload>(initialSpanPayload);
+  
+  const { submit } = useTraceForm(formRef, {
+    spanNames: ["name", "email", "subject", "message"],
+    onChange:(option) =>{
+      console.log({ option})
+    }
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const span = tracer.startSpan('form_submit', {
-      attributes: {
-        'form.data': JSON.stringify(spanPayloadRef.current),
-      },
-    });
-    span.end();
-    console.log("Form submitted:", formData);
     alert("Thanks for reaching out! I'll get back to you soon.");
     setFormData({ name: "", email: "", subject: "", message: "" });
+    submit();
+    throw new Error("test");
   };
 
   const handleChange = (
@@ -41,11 +40,6 @@ export function ContactPage() {
       ...prev,
       [e.target.name]: e.target.value,
     }));
-
-    spanPayloadRef.current = {
-      ...spanPayloadRef.current,
-      [e.target.name]: e.target.value,
-    };
   };
 
   return (
@@ -73,7 +67,7 @@ export function ContactPage() {
           <h2 className="text-xl font-semibold text-slate-50 mb-6">
             Send a Message
           </h2>
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label
                 htmlFor="name"

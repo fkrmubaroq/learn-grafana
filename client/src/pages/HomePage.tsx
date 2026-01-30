@@ -1,15 +1,52 @@
-import axios from "axios";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useSendLog } from "@/hooks";
+import { Loader2, CheckCircle2 } from "lucide-react";
 
 export function HomePage() {
   const [logs, setLogs] = useState<string>("");
+  const [showSuccess, setShowSuccess] = useState(false);
+  
+  const sendLogMutation = useSendLog();
 
   const handleLogs = () => {
     if (!logs.trim()) return;
-    axios.post("http://localhost:8000/api/logs", { logs }).then((res) => {
-      console.log(res.data);
-    });
+    
+    // Try to parse as JSON, otherwise send as plain message
+    let logData: Record<string, unknown> = {};
+    let message = logs;
+    let level: "info" | "debug" | "warn" | "error" = "info";
+    
+    try {
+      const parsed = JSON.parse(logs);
+      if (typeof parsed === "object") {
+        logData = parsed;
+        message = parsed.message || logs;
+        level = parsed.level || "info";
+      }
+    } catch {
+      // Not JSON, use as plain text
+      message = logs;
+    }
+
+    sendLogMutation.mutate(
+      {
+        level,
+        message,
+        data: logData,
+        source: "client-homepage",
+      },
+      {
+        onSuccess: (data) => {
+          console.log("Log sent successfully:", data);
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 2000);
+        },
+        onError: (error) => {
+          console.error("Failed to send log:", error);
+        },
+      }
+    );
   };
 
   return (
@@ -150,13 +187,29 @@ export function HomePage() {
               className="mb-4 h-40 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 outline-none ring-emerald-400/40 focus:border-emerald-300/60 focus:ring-2"
             />
             <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-              <span>Sent logs will appear in your server console.</span>
+              <span className="flex items-center gap-2">
+                {showSuccess && (
+                  <span className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Sent!
+                  </span>
+                )}
+                {!showSuccess && "Sent logs will appear in your server console."}
+              </span>
               <button
                 type="button"
                 onClick={handleLogs}
-                className="rounded-full bg-emerald-400/90 px-4 py-1.5 text-[11px] font-medium text-slate-950 hover:bg-emerald-300 transition-colors"
+                disabled={sendLogMutation.isPending || !logs.trim()}
+                className="rounded-full bg-emerald-400/90 px-4 py-1.5 text-[11px] font-medium text-slate-950 hover:bg-emerald-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Send logs
+                {sendLogMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send logs"
+                )}
               </button>
             </div>
           </div>

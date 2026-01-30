@@ -1,17 +1,32 @@
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
+import client from "prom-client";
+
+client.collectDefaultMetrics();
+const httpRequestDuration = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code'],
+});
 
 const app = express();
 const PORT = 8000;
 
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
+});
+
 // Simple request logger middleware
 const requestLogger = (req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
+  const end = httpRequestDuration.startTimer();
   
   res.on("finish", () => {
-    const duration = Date.now() - start;
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] ${req.method} ${req.url} - ${res.statusCode} (${duration}ms)`);
+    end({
+      method: req.method,
+      route: req.route?.path || req.path,
+      status_code: res.statusCode,
+    });
   });
   
   next();

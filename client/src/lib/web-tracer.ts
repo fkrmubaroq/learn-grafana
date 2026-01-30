@@ -66,7 +66,15 @@ export default function initTracing() {
         },
       }),
       new XMLHttpRequestInstrumentation({
-        propagateTraceHeaderCorsUrls: /.*/,
+        propagateTraceHeaderCorsUrls: ['http://localhost:8000/*'],
+        applyCustomAttributesOnSpan: (span, request) => {
+          // const url = new URL(request.responseURL);
+          // url.pathname.in
+
+          // 
+
+          console.log("MASUKKK", { span, request }, span.spanContext().traceId);
+        },
       }),
     ],
   });

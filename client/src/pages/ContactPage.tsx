@@ -18,19 +18,18 @@ export function ContactPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const [formData, setFormData] = useState<SpanPayload>(initialSpanPayload);
   
-  const { submit } = useTraceForm(formRef, {
-    spanNames: ["name", "email", "subject", "message"],
-    onChange:(option) =>{
-      console.log({ option})
-    }
-  });
+  const { submit:submitTempo } = useTraceForm();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     alert("Thanks for reaching out! I'll get back to you soon.");
     setFormData({ name: "", email: "", subject: "", message: "" });
-    submit();
-    throw new Error("test");
+    submitTempo({
+      name: formData.name,
+      email: formData.email,
+      subject: formData.subject,
+      message: formData.message,
+    });
   };
 
   const handleChange = (

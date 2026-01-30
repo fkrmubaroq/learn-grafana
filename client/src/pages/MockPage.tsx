@@ -8,152 +8,135 @@ import {
   Server,
   Zap,
   FileText,
-  Send,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
-
-const API_BASE = "http://localhost:8000";
+import {
+  useHealth,
+  useHello,
+  useHeavyProcess,
+  useUnstableProcess,
+  useBatchProcess,
+  useSendLog,
+} from "@/hooks";
+import type { SendLogRequest } from "@/services/api-types";
 
 type ApiResponse = {
   data: unknown;
   status: number;
   duration: number;
+  isError?: boolean;
 } | null;
 
-export function MockPage() {
-  const [loading, setLoading] = useState<string | null>(null);
-  const [response, setResponse] = useState<ApiResponse>(null);
+// ==========================================
+// Reusable Components (outside of render)
+// ==========================================
 
-  // Form states
-  const [heavyDuration, setHeavyDuration] = useState(3000);
-  const [heavyIterations, setHeavyIterations] = useState(1000000);
-  const [unstableDuration, setUnstableDuration] = useState(2000);
-  const [failRate, setFailRate] = useState(0.3);
-  const [batchItems, setBatchItems] = useState(5);
-  const [batchDelay, setBatchDelay] = useState(100);
-  const [logLevel, setLogLevel] = useState("info");
-  const [logMessage, setLogMessage] = useState("Test log from client");
+interface ApiCardProps {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  endpoint: string;
+  method?: "GET" | "POST";
+  children?: React.ReactNode;
+  onCall: () => void;
+  color?: "emerald" | "amber" | "rose" | "cyan";
+  isActive: boolean;
+  isLoading: boolean;
+}
 
-  const callApi = async (
-    endpoint: string,
-    method: "GET" | "POST" = "GET",
-    body?: object
-  ) => {
-    setLoading(endpoint);
-    setResponse(null);
-    const start = Date.now();
-
-    try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method,
-        headers: body ? { "Content-Type": "application/json" } : undefined,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      const data = await res.json();
-      const duration = Date.now() - start;
-
-      setResponse({ data, status: res.status, duration });
-    } catch (error) {
-      const duration = Date.now() - start;
-      setResponse({
-        data: { error: (error as Error).message },
-        status: 0,
-        duration,
-      });
-    } finally {
-      setLoading(null);
-    }
+function ApiCard({
+  title,
+  description,
+  icon: Icon,
+  endpoint,
+  method = "GET",
+  children,
+  onCall,
+  color = "emerald",
+  isActive,
+  isLoading,
+}: ApiCardProps) {
+  const colorClasses = {
+    emerald: "bg-emerald-400/10 text-emerald-300 border-emerald-400/30",
+    amber: "bg-amber-400/10 text-amber-300 border-amber-400/30",
+    rose: "bg-rose-400/10 text-rose-300 border-rose-400/30",
+    cyan: "bg-cyan-400/10 text-cyan-300 border-cyan-400/30",
   };
 
-  const ApiCard = ({
-    title,
-    description,
-    icon: Icon,
-    endpoint,
-    method = "GET",
-    children,
-    onCall,
-    color = "emerald",
-  }: {
-    title: string;
-    description: string;
-    icon: React.ElementType;
-    endpoint: string;
-    method?: "GET" | "POST";
-    children?: React.ReactNode;
-    onCall: () => void;
-    color?: "emerald" | "amber" | "rose" | "cyan";
-  }) => {
-    const colorClasses = {
-      emerald: "bg-emerald-400/10 text-emerald-300 border-emerald-400/30",
-      amber: "bg-amber-400/10 text-amber-300 border-amber-400/30",
-      rose: "bg-rose-400/10 text-rose-300 border-rose-400/30",
-      cyan: "bg-cyan-400/10 text-cyan-300 border-cyan-400/30",
-    };
+  const buttonClasses = {
+    emerald: "bg-emerald-400/90 hover:bg-emerald-300",
+    amber: "bg-amber-400/90 hover:bg-amber-300",
+    rose: "bg-rose-400/90 hover:bg-rose-300",
+    cyan: "bg-cyan-400/90 hover:bg-cyan-300",
+  };
 
-    const buttonClasses = {
-      emerald: "bg-emerald-400/90 hover:bg-emerald-300",
-      amber: "bg-amber-400/90 hover:bg-amber-300",
-      rose: "bg-rose-400/90 hover:bg-rose-300",
-      cyan: "bg-cyan-400/90 hover:bg-cyan-300",
-    };
-
-    return (
-      <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-6">
-        <div className="flex items-start gap-4 mb-4">
-          <div
-            className={`w-10 h-10 rounded-full ${colorClasses[color]} flex items-center justify-center`}
-          >
-            <Icon className="w-5 h-5" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-slate-50">{title}</h3>
-            <p className="text-sm text-slate-400 mt-1">{description}</p>
-            <code className="text-xs text-slate-500 mt-2 block">
-              {method} {endpoint}
-            </code>
-          </div>
-        </div>
-
-        {children && <div className="space-y-3 mb-4">{children}</div>}
-
-        <button
-          onClick={onCall}
-          disabled={loading !== null}
-          className={`w-full rounded-full ${buttonClasses[color]} px-4 py-2 text-sm font-medium text-slate-950 shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50`}
+  return (
+    <div
+      className={`rounded-2xl border bg-slate-900/60 p-6 transition-all ${
+        isActive
+          ? "border-emerald-400/50 ring-2 ring-emerald-400/20"
+          : "border-white/5"
+      }`}
+    >
+      <div className="flex items-start gap-4 mb-4">
+        <div
+          className={`w-10 h-10 rounded-full ${colorClasses[color]} flex items-center justify-center`}
         >
-          {loading === endpoint ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <Play className="w-4 h-4" />
-              Call API
-            </>
-          )}
-        </button>
+          <Icon className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-slate-50">{title}</h3>
+          <p className="text-sm text-slate-400 mt-1">{description}</p>
+          <code className="text-xs text-slate-500 mt-2 block">
+            {method} {endpoint}
+          </code>
+        </div>
       </div>
-    );
-  };
 
-  const InputField = ({
-    label,
-    value,
-    onChange,
-    type = "number",
-    min,
-    max,
-    step,
-  }: {
-    label: string;
-    value: string | number;
-    onChange: (val: number | string) => void;
-    type?: "number" | "text" | "select";
-    min?: number;
-    max?: number;
-    step?: number;
-  }) => (
+      {children && <div className="space-y-3 mb-4">{children}</div>}
+
+      <button
+        onClick={onCall}
+        disabled={isLoading}
+        className={`w-full rounded-full ${buttonClasses[color]} px-4 py-2 text-sm font-medium text-slate-950 shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+      >
+        {isActive ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <Play className="w-4 h-4" />
+            Call API
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+interface InputFieldProps {
+  label: string;
+  value: string | number;
+  onChange: (val: number | string) => void;
+  type?: "number" | "text";
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+function InputField({
+  label,
+  value,
+  onChange,
+  type = "number",
+  min,
+  max,
+  step,
+}: InputFieldProps) {
+  return (
     <div>
       <label className="block text-xs font-medium text-slate-300 mb-1">
         {label}
@@ -171,6 +154,149 @@ export function MockPage() {
       />
     </div>
   );
+}
+
+// ==========================================
+// Main Component
+// ==========================================
+
+export function MockPage() {
+  const [response, setResponse] = useState<ApiResponse>(null);
+  const [activeEndpoint, setActiveEndpoint] = useState<string | null>(null);
+  const [requestStartTime, setRequestStartTime] = useState<number>(0);
+
+  // Form states
+  const [heavyDuration, setHeavyDuration] = useState(3000);
+  const [heavyIterations, setHeavyIterations] = useState(1000000);
+  const [unstableDuration, setUnstableDuration] = useState(2000);
+  const [failRate, setFailRate] = useState(0.3);
+  const [batchItems, setBatchItems] = useState(5);
+  const [batchDelay, setBatchDelay] = useState(100);
+  const [logLevel, setLogLevel] = useState<SendLogRequest["level"]>("info");
+  const [logMessage, setLogMessage] = useState("Test log from client");
+
+  // Hooks
+  const healthQuery = useHealth({ enabled: false });
+  const helloQuery = useHello({ enabled: false });
+  const heavyProcessMutation = useHeavyProcess();
+  const unstableProcessMutation = useUnstableProcess();
+  const batchProcessMutation = useBatchProcess();
+  const sendLogMutation = useSendLog();
+
+  // Helper to handle response
+  const handleResponse = (data: unknown, isError = false) => {
+    const duration = Date.now() - requestStartTime;
+    setResponse({
+      data,
+      status: isError ? 500 : 200,
+      duration,
+      isError,
+    });
+    setActiveEndpoint(null);
+  };
+
+  // API call handlers
+  const handleHealthCheck = async () => {
+    setActiveEndpoint("/health");
+    setRequestStartTime(Date.now());
+    setResponse(null);
+
+    const result = await healthQuery.refetch();
+    if (result.data) {
+      handleResponse(result.data);
+    } else if (result.error) {
+      handleResponse({ error: result.error.message }, true);
+    }
+  };
+
+  const handleHello = async () => {
+    setActiveEndpoint("/api/hello");
+    setRequestStartTime(Date.now());
+    setResponse(null);
+
+    const result = await helloQuery.refetch();
+    if (result.data) {
+      handleResponse(result.data);
+    } else if (result.error) {
+      handleResponse({ error: result.error.message }, true);
+    }
+  };
+
+  const handleHeavyProcess = () => {
+    setActiveEndpoint("/api/heavy-process");
+    setRequestStartTime(Date.now());
+    setResponse(null);
+
+    heavyProcessMutation.mutate(
+      { duration: heavyDuration, iterations: heavyIterations },
+      {
+        onSuccess: (data) => handleResponse(data),
+        onError: (error) => handleResponse({ error: error.message }, true),
+      }
+    );
+  };
+
+  const handleUnstableProcess = () => {
+    setActiveEndpoint("/api/heavy-process-unstable");
+    setRequestStartTime(Date.now());
+    setResponse(null);
+
+    unstableProcessMutation.mutate(
+      { duration: unstableDuration, failRate },
+      {
+        onSuccess: (data) => handleResponse(data),
+        onError: (error) => {
+          const errorData = error.response?.data || { error: error.message };
+          handleResponse(errorData, true);
+        },
+      }
+    );
+  };
+
+  const handleBatchProcess = () => {
+    setActiveEndpoint("/api/batch-process");
+    setRequestStartTime(Date.now());
+    setResponse(null);
+
+    batchProcessMutation.mutate(
+      {
+        items: Array.from({ length: batchItems }, (_, i) => `item-${i}`),
+        processingDelay: batchDelay,
+      },
+      {
+        onSuccess: (data) => handleResponse(data),
+        onError: (error) => handleResponse({ error: error.message }, true),
+      }
+    );
+  };
+
+  const handleSendLog = () => {
+    setActiveEndpoint("/api/logs");
+    setRequestStartTime(Date.now());
+    setResponse(null);
+
+    sendLogMutation.mutate(
+      {
+        level: logLevel,
+        message: logMessage,
+        data: { source: "MockPage", timestamp: Date.now() },
+        source: "client-mock",
+      },
+      {
+        onSuccess: (data) => handleResponse(data),
+        onError: (error) => handleResponse({ error: error.message }, true),
+      }
+    );
+  };
+
+  // Check if any mutation is loading
+  const isLoading =
+    healthQuery.isFetching ||
+    helloQuery.isFetching ||
+    heavyProcessMutation.isPending ||
+    unstableProcessMutation.isPending ||
+    batchProcessMutation.isPending ||
+    sendLogMutation.isPending;
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-16">
@@ -189,6 +315,9 @@ export function MockPage() {
           Test all server API endpoints with customizable parameters. Monitor
           responses and processing times.
         </p>
+        <p className="text-xs text-slate-500 mt-2">
+          Using Axios + TanStack Query for API calls
+        </p>
       </div>
 
       {/* API Cards Grid */}
@@ -199,8 +328,10 @@ export function MockPage() {
           description="Simple health check endpoint"
           icon={Activity}
           endpoint="/health"
-          onCall={() => callApi("/health")}
+          onCall={handleHealthCheck}
           color="emerald"
+          isActive={activeEndpoint === "/health"}
+          isLoading={isLoading}
         />
 
         {/* Hello API */}
@@ -209,8 +340,10 @@ export function MockPage() {
           description="Basic hello endpoint"
           icon={Server}
           endpoint="/api/hello"
-          onCall={() => callApi("/api/hello")}
+          onCall={handleHello}
           color="cyan"
+          isActive={activeEndpoint === "/api/hello"}
+          isLoading={isLoading}
         />
 
         {/* Heavy Process */}
@@ -219,12 +352,10 @@ export function MockPage() {
           description="CPU-intensive mock process with configurable duration"
           icon={Zap}
           endpoint="/api/heavy-process"
-          onCall={() =>
-            callApi(
-              `/api/heavy-process?duration=${heavyDuration}&iterations=${heavyIterations}`
-            )
-          }
+          onCall={handleHeavyProcess}
           color="amber"
+          isActive={activeEndpoint === "/api/heavy-process"}
+          isLoading={isLoading}
         >
           <div className="grid grid-cols-2 gap-3">
             <InputField
@@ -252,12 +383,10 @@ export function MockPage() {
           description="Heavy process with random failures"
           icon={AlertTriangle}
           endpoint="/api/heavy-process-unstable"
-          onCall={() =>
-            callApi(
-              `/api/heavy-process-unstable?duration=${unstableDuration}&failRate=${failRate}`
-            )
-          }
+          onCall={handleUnstableProcess}
           color="rose"
+          isActive={activeEndpoint === "/api/heavy-process-unstable"}
+          isLoading={isLoading}
         >
           <div className="grid grid-cols-2 gap-3">
             <InputField
@@ -286,13 +415,10 @@ export function MockPage() {
           icon={Clock}
           endpoint="/api/batch-process"
           method="POST"
-          onCall={() =>
-            callApi("/api/batch-process", "POST", {
-              items: Array.from({ length: batchItems }, (_, i) => `item-${i}`),
-              processingDelay: batchDelay,
-            })
-          }
+          onCall={handleBatchProcess}
           color="cyan"
+          isActive={activeEndpoint === "/api/batch-process"}
+          isLoading={isLoading}
         >
           <div className="grid grid-cols-2 gap-3">
             <InputField
@@ -320,15 +446,10 @@ export function MockPage() {
           icon={FileText}
           endpoint="/api/logs"
           method="POST"
-          onCall={() =>
-            callApi("/api/logs", "POST", {
-              level: logLevel,
-              message: logMessage,
-              data: { source: "MockPage", timestamp: Date.now() },
-              source: "client-mock",
-            })
-          }
+          onCall={handleSendLog}
           color="emerald"
+          isActive={activeEndpoint === "/api/logs"}
+          isLoading={isLoading}
         >
           <div className="space-y-3">
             <div>
@@ -337,7 +458,9 @@ export function MockPage() {
               </label>
               <select
                 value={logLevel}
-                onChange={(e) => setLogLevel(e.target.value)}
+                onChange={(e) =>
+                  setLogLevel(e.target.value as SendLogRequest["level"])
+                }
                 className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-1.5 text-sm text-slate-100 outline-none focus:border-emerald-300/60"
               >
                 <option value="debug">Debug</option>
@@ -361,20 +484,22 @@ export function MockPage() {
         <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-50 flex items-center gap-2">
-              <Send className="w-5 h-5 text-emerald-300" />
+              {response.isError ? (
+                <XCircle className="w-5 h-5 text-rose-400" />
+              ) : (
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              )}
               Response
             </h3>
             <div className="flex items-center gap-4 text-sm">
               <span
                 className={`px-2 py-0.5 rounded-full ${
-                  response.status >= 200 && response.status < 300
+                  !response.isError
                     ? "bg-emerald-400/20 text-emerald-300"
-                    : response.status >= 400
-                    ? "bg-rose-400/20 text-rose-300"
-                    : "bg-amber-400/20 text-amber-300"
+                    : "bg-rose-400/20 text-rose-300"
                 }`}
               >
-                Status: {response.status || "Error"}
+                Status: {response.isError ? "Error" : "Success"}
               </span>
               <span className="text-slate-400">
                 Duration: {response.duration}ms
